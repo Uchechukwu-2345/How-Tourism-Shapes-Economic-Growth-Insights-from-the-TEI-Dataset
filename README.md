@@ -1,5 +1,5 @@
 
-## Data Spotlight: How Tourism Shapes Economic Growth — Insights from the TEI Dataset
+## Data Spotlight: Tourism and Economic Growth — Insights from the TEI Dataset
 
 ### Table of Contents
 -Introduction
@@ -539,4 +539,387 @@ I was not able to extract country-specific information
 
 Could I have used a different approach for filling in the missing values
 
-Could I have applied different modell
+Could I have applied different model
+
+
+
+
+
+To display your notebook-style analysis cleanly and professionally on a `README.md` in your GitHub repository, you'll want to structure the content using proper Markdown formatting. Here's how you can organize your entire analysis:
+
+---
+
+## 📊 Data Spotlight: How Tourism Shapes Economic Growth — Insights from the TEI Dataset
+
+### 🗂 Table of Contents
+
+* [Introduction](#introduction)
+* [Data Wrangling](#data-wrangling)
+* [Data Cleaning](#data-cleaning)
+* [Exploratory Data Analysis (EDA)](#exploratory-data-analysis-eda)
+* [Result Interpretation](#result-interpretation)
+* [Conclusion](#conclusion)
+* [Limitations](#limitations)
+
+---
+
+### 🧭 Introduction
+
+Tourism has remained a major contributor to a country’s Gross Domestic Product (GDP) over time. In 2024, tourism was estimated to contribute over **10%** to global GDP through the creation of employment opportunities.
+
+In 2024 alone, it provided jobs for over **348 million people worldwide**, accounting for 1 in every 10 jobs globally.
+
+We analyzed the **Tourism and Economic Impact (TEI)** dataset from the World Bank (via Kaggle), which includes:
+
+* `Tourism Receipts`
+* `Tourism Arrivals`
+* `Tourism Expenditures`
+* `Tourism Exports`
+* `Tourism Departures`
+* `GDP`
+* `Inflation`
+* `Unemployment`
+
+All monetary values are in **current USD**.
+
+---
+
+### 🧹 Data Wrangling
+
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
+
+# Load dataset
+data = pd.read_csv('world_tourism_economy_data.csv')
+data.head()
+```
+
+Basic information:
+
+```python
+data.shape
+data.info()
+data.describe(include='all')
+```
+
+---
+
+### 🧼 Data Cleaning
+
+#### ✅ Key Steps:
+
+* Converted `year` to `datetime`
+* Filled missing values using **median**
+* Dropped irrelevant columns (`country_code`)
+* Handled **outliers** in `inflation` using the **IQR** method
+* Applied **log transformation** to large-valued variables
+
+```python
+from datetime import datetime as dt
+data['year'] = pd.to_datetime(data['year'])
+
+# Filling missing values
+for col in ['tourism_receipts', 'tourism_arrivals', 'tourism_exports', 
+            'tourism_departures', 'tourism_expenditures', 'gdp', 
+            'inflation', 'unemployment']:
+    data[col].fillna(data[col].median(), inplace=True)
+
+# Outlier treatment for inflation
+Q1 = data['inflation'].quantile(0.25)
+Q3 = data['inflation'].quantile(0.75)
+IQR = Q3 - Q1
+lower = Q1 - 1.5 * IQR
+upper = Q3 + 1.5 * IQR
+median_val = data['inflation'].median()
+data['inflation'] = data['inflation'].apply(lambda x: median_val if (x < lower or x > upper) else x)
+```
+
+---
+
+### 📈 Exploratory Data Analysis (EDA)
+
+#### 🔁 Correlation Between Tourism Receipts and Key Economic Indicators
+
+```python
+np.corrcoef(data['tourism_receipts'], data['tourism_arrivals'])
+sns.regplot(data=data, x='tourism_arrivals', y='tourism_receipts')
+```
+
+| Variable             | Correlation with Tourism Receipts |
+| -------------------- | --------------------------------- |
+| Tourism Arrivals     | 0.87                              |
+| Tourism Departures   | 0.86                              |
+| GDP                  | 0.73                              |
+| Tourism Exports      | -0.07                             |
+| Tourism Expenditures | -0.02                             |
+| Inflation            | -0.08                             |
+| Unemployment         | -0.01                             |
+
+#### 🔥 Heatmap Visualization
+
+```python
+plt.figure(figsize=(15,7))
+sns.heatmap(data.drop(['year', 'country'], axis=1).corr(), annot=True, cmap='crest')
+plt.show()
+```
+
+---
+
+### 📉 Regression Analysis (OLS)
+
+To determine the **overall impact of tourism on economic growth**, we used **Ordinary Least Squares (OLS)** regression.
+
+```python
+# Log transformation
+data['log_tourism_receipts'] = np.log(data['tourism_receipts'])
+data['log_tourism_arrivals'] = np.log(data['tourism_arrivals'])
+data['log_tourism_departures'] = np.log(data['tourism_departures'])
+data['log_gdp'] = np.log(data['gdp'])
+
+# Define dependent and independent variables
+Y = data['log_gdp']
+X = data[['log_tourism_arrivals', 'log_tourism_departures', 'log_tourism_receipts',
+          'tourism_exports', 'tourism_expenditures', 'inflation', 'unemployment']]
+
+import statsmodels.api as sm
+X = sm.add_constant(X)
+model = sm.OLS(Y, X).fit()
+print(model.summary())
+```
+
+#### 🔍 Key Takeaways from the Regression:
+
+* **R² = 0.668** → about 67% of variation in GDP is explained
+* Significant positive predictors: `tourism_arrivals`, `tourism_departures`, `tourism_receipts`, `inflation`
+* Negative impact: `unemployment`, `tourism_exports` (surprisingly)
+* `tourism_expenditures` was not statistically significant (p ≈ 0.98)
+
+---
+
+### ✅ Conclusion
+
+* **Tourism Receipts**, **Tourism Arrivals**, and **Departures** show strong positive correlations with **GDP**.
+* Tourism influences economic growth significantly.
+* A cleaned and well-transformed dataset was key to uncovering these relationships.
+* The regression confirmed the **economic significance** of the tourism sector globally.
+
+---
+
+### ⚠️ Limitations
+
+* This analysis does **not capture country-specific trends**.
+* We used **median imputation**, but alternative methods (interpolation, forward/backward fill) might yield different results.
+* Only a linear model (OLS) was used. **Other models** such as Random Forests or XGBoost could offer **non-linear insights**.
+
+---
+
+### 📁 Repository Structure
+
+```bash
+project-root/
+│
+├── world_tourism_economy_data.csv
+├── analysis.ipynb
+├── README.md  <-- This file
+└── requirements.txt
+```
+
+---
+
+### 🛠 To Run
+
+1. Clone this repo
+2. Install requirements: `pip install -r requirements.txt`
+3. Launch the notebook or script
+
+
+
+Certainly! Here's your complete notebook-style analysis presented **exactly as you posted**, but reformatted in proper Markdown syntax so you can copy and paste it directly into a `README.md` file in your GitHub repository:
+
+---
+
+# 📊 Data Spotlight: How Tourism Shapes Economic Growth — Insights from the TEI Dataset
+
+---
+
+## 🗂 Table of Contents
+
+* [Introduction](#introduction)
+* [Data Wrangling](#data-wrangling)
+* [Exploratory Data Analysis (EDA)](#exploratory-data-analysis-eda)
+* [Result Interpretation](#result-interpretation)
+* [Conclusion](#conclusion)
+* [Limitation](#limitation)
+
+---
+
+## 🧭 Introduction
+
+Tourism has remained major contributor to a country’s Gross Domestic Product (GDP) over time. In 2024, tourism was estimated to contribute over 10% to global GDP through the creation of employment opportunities.
+
+The tourism industry has consistently grown over the years. In 2024 alone, it provided jobs for over 348 million people worldwide, accounting for 1 in every 10 jobs globally.
+
+To understand how tourism shapes the economy, I analyzed the World Bank's Tourism and Economic Impact (TEI) dataset, made available on Kaggle. It contains annual information on:
+
+* tourism receipts,
+* tourism arrivals,
+* tourism expenditures,
+* tourism exports,
+* tourism departures,
+* GDP,
+* inflation,
+* and unemployment
+
+across various countries over time. All monetary values are in current USD.
+
+---
+
+## 🧹 Data Wrangling
+
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
+```
+
+```python
+# Load dataset
+data = pd.read_csv('world_tourism_economy_data.csv')
+data.head()
+```
+
+---
+
+## 🧽 Data Cleaning
+
+* Converted 'year' to datetime
+* Filled missing values using median
+* Removed country\_code (irrelevant)
+* Handled outliers in inflation using IQR method
+* Applied log transformation for better normality
+
+```python
+# Step 1: Convert 'year' to datetime
+from datetime import datetime as dt
+data['year'] = pd.to_datetime(data['year'])
+```
+
+```python
+# Step 2: Fill missing values using median
+cols_to_fill = ['tourism_receipts', 'tourism_arrivals', 'tourism_exports', 
+                'tourism_departures', 'tourism_expenditures', 'gdp', 
+                'inflation', 'unemployment']
+
+for col in cols_to_fill:
+    data[col].fillna(data[col].median(), inplace=True)
+```
+
+```python
+# Step 3: Handle outliers in 'inflation' using IQR
+Q1 = data['inflation'].quantile(0.25)
+Q3 = data['inflation'].quantile(0.75)
+IQR = Q3 - Q1
+lower = Q1 - 1.5 * IQR
+upper = Q3 + 1.5 * IQR
+median_val = data['inflation'].median()
+
+data['inflation'] = data['inflation'].apply(lambda x: median_val if (x < lower or x > upper) else x)
+```
+
+---
+
+## 📈 Exploratory Data Analysis (EDA)
+
+### Relationship Between Tourism Receipts and Tourism Arrivals
+
+```python
+np.corrcoef(data['tourism_receipts'], data['tourism_arrivals'])
+```
+
+```python
+sns.regplot(data=data, x='tourism_arrivals', y='tourism_receipts')
+```
+
+> **Correlation coefficient**: 0.87
+> This means the relationship is strong and positive.
+
+---
+
+## 📊 Result Interpretation
+
+### Correlation Matrix
+
+```python
+plt.figure(figsize=(15,7))
+sns.heatmap(data.drop(['year', 'country'], axis=1).corr(), annot=True, cmap='crest')
+plt.show()
+```
+
+| Variable             | Correlation with Tourism Receipts |
+| -------------------- | --------------------------------- |
+| Tourism Arrivals     | 0.87                              |
+| Tourism Departures   | 0.86                              |
+| GDP                  | 0.73                              |
+| Tourism Exports      | -0.07                             |
+| Tourism Expenditures | -0.02                             |
+| Inflation            | -0.08                             |
+| Unemployment         | -0.01                             |
+
+---
+
+### 📉 Linear Regression (OLS)
+
+```python
+# Log-transform relevant variables
+data['log_tourism_receipts'] = np.log(data['tourism_receipts'])
+data['log_tourism_arrivals'] = np.log(data['tourism_arrivals'])
+data['log_tourism_departures'] = np.log(data['tourism_departures'])
+data['log_gdp'] = np.log(data['gdp'])
+
+# Define independent and dependent variables
+Y = data['log_gdp']
+X = data[['log_tourism_arrivals', 'log_tourism_departures', 'log_tourism_receipts',
+          'tourism_exports', 'tourism_expenditures', 'inflation', 'unemployment']]
+```
+
+```python
+# Fit OLS Model
+import statsmodels.api as sm
+X = sm.add_constant(X)
+model = sm.OLS(Y, X).fit()
+print(model.summary())
+```
+
+#### ✅ OLS Summary Insights:
+
+* **R-squared** = 0.668 → 67% of variation in GDP is explained.
+* `log_tourism_arrivals`, `log_tourism_departures`, `log_tourism_receipts`, and `inflation` all have **statistically significant** positive effects on GDP.
+* `tourism_exports` and `unemployment` negatively affect GDP.
+* `tourism_expenditures` is **not significant** (p-value ≈ 0.98)
+
+---
+
+## 🧾 Conclusion
+
+* There is a **strong positive relationship** between tourism indicators (arrivals, receipts, departures) and economic growth (GDP).
+* **Linear regression** shows that these indicators **significantly predict** GDP.
+* Inflation also plays a surprisingly **positive role** in GDP growth in this dataset.
+* A well-cleaned dataset and log-transformed variables yielded robust results.
+
+---
+
+## ⚠️ Limitation
+
+* The analysis doesn't cover **country-specific trends**.
+* I used **median imputation** for missing values — other methods (e.g., interpolation, forward/backward fill) could yield different outcomes.
+* Only **linear relationships** were analyzed. Future work could explore **non-linear models** or **time series** dynamics.
+
+---
